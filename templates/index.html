@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Singing Bowls Export Automation System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-inner">
+      <a class="brand" href="{{ url_for('index') }}">Singing Bowls Export</a>
+      <div class="nav-links">
+        <a href="{{ url_for('index') }}">Dashboard</a>
+        <a href="{{ url_for('leads_page') }}">View Leads</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <header class="page-header">
+      <h1>Singing Bowls Export Automation System</h1>
+      <p class="subtitle">
+        Discover wholesale buyers, enrich contact emails, and send personalized outreach — all from one dashboard.
+      </p>
+    </header>
+
+    <section class="actions" aria-label="Automation actions">
+      <button id="btn-find-leads" class="btn btn-primary btn-large" type="button">
+        <span class="btn-label">Find Leads</span>
+        <span class="btn-hint">SerpAPI Google search</span>
+      </button>
+      <button id="btn-enrich-emails" class="btn btn-secondary btn-large" type="button">
+        <span class="btn-label">Enrich Emails</span>
+        <span class="btn-hint">Hunter.io domain search</span>
+      </button>
+      <button id="btn-send-emails" class="btn btn-accent btn-large" type="button">
+        <span class="btn-label">Send Emails</span>
+        <span class="btn-hint">Gmail SMTP outreach</span>
+      </button>
+    </section>
+
+    <section class="status-cards" aria-label="Current stats">
+      <div class="card">
+        <h3>Leads found</h3>
+        <p class="stat" id="stat-leads-found">{{ stats.leads_found }}</p>
+        <span class="hint">from leads_raw.csv</span>
+      </div>
+      <div class="card">
+        <h3>Emails enriched</h3>
+        <p class="stat" id="stat-emails-enriched">{{ stats.emails_enriched }}</p>
+        <span class="hint">leads with emails</span>
+      </div>
+      <div class="card">
+        <h3>Emails sent</h3>
+        <p class="stat" id="stat-emails-sent">{{ stats.emails_sent }}</p>
+        <span class="hint">from email_log.csv</span>
+      </div>
+    </section>
+
+    <section class="message-box" id="message-box" hidden role="status"></section>
+
+    <section class="activity">
+      <div class="activity-header">
+        <h2>Activity Log</h2>
+        <div class="activity-controls">
+          <a class="btn btn-link btn-small" href="{{ url_for('leads_page') }}">View all leads</a>
+          <button id="btn-refresh" class="btn btn-small" type="button">Refresh</button>
+        </div>
+      </div>
+      <div class="log" id="activity-log" aria-live="polite">
+        {% if activity_log %}
+          {% for entry in activity_log %}
+            <div class="log-line">{{ entry }}</div>
+          {% endfor %}
+        {% else %}
+          <div class="log-line muted">No activity yet. Click a button above to get started.</div>
+        {% endif %}
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const messageBox = document.getElementById("message-box");
+    const activityLog = document.getElementById("activity-log");
+    const buttons = ["btn-find-leads", "btn-enrich-emails", "btn-send-emails"];
+
+    function showMessage(text, isError) {
+      messageBox.hidden = false;
+      messageBox.textContent = text;
+      messageBox.className = "message-box " + (isError ? "error" : "success");
+    }
+
+    function appendLog(line) {
+      const empty = activityLog.querySelector(".muted");
+      if (empty) empty.remove();
+      const div = document.createElement("div");
+      div.className = "log-line";
+      div.textContent = line;
+      activityLog.prepend(div);
+    }
+
+    function setLoading(busy, label) {
+      buttons.forEach((id) => {
+        document.getElementById(id).disabled = busy;
+      });
+      if (busy) {
+        showMessage(label + " in progress… this may take a minute.", false);
+        appendLog(label + " started…");
+      }
+    }
+
+    function updateStats(stats) {
+      if (!stats) return;
+      if (stats.leads_found !== undefined) {
+        document.getElementById("stat-leads-found").textContent = stats.leads_found;
+      }
+      if (stats.emails_enriched !== undefined) {
+        document.getElementById("stat-emails-enriched").textContent = stats.emails_enriched;
+      }
+      if (stats.emails_sent !== undefined) {
+        document.getElementById("stat-emails-sent").textContent = stats.emails_sent;
+      }
+    }
+
+    async function refreshStats() {
+      try {
+        const response = await fetch("/api/stats");
+        if (response.ok) {
+          updateStats(await response.json());
+        }
+      } catch (_) {
+        /* ignore refresh errors */
+      }
+    }
+
+    async function runAction(url, label) {
+      setLoading(true, label);
+      try {
+        const response = await fetch(url, { method: "POST" });
+        const data = await response.json();
+        const isError = !response.ok || data.status === "error";
+        showMessage(data.message || (isError ? "Something went wrong." : "Done."), isError);
+        appendLog(data.message || label + (isError ? " failed." : " finished."));
+        updateStats(data.stats);
+        await refreshStats();
+      } catch (err) {
+        showMessage("Request failed: " + err.message, true);
+        appendLog("Request failed: " + err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    document.getElementById("btn-find-leads").addEventListener("click", () => {
+      if (confirm("Run lead discovery via SerpAPI?")) {
+        runAction("/api/find-leads", "Lead discovery");
+      }
+    });
+
+    document.getElementById("btn-enrich-emails").addEventListener("click", () => {
+      if (confirm("Run Hunter.io email enrichment? This uses API credits.")) {
+        runAction("/api/enrich-emails", "Email enrichment");
+      }
+    });
+
+    document.getElementById("btn-send-emails").addEventListener("click", () => {
+      if (confirm("Send outreach emails via Gmail? This will contact real addresses.")) {
+        runAction("/api/send-emails", "Email outreach");
+      }
+    });
+
+    document.getElementById("btn-refresh").addEventListener("click", async () => {
+      await refreshStats();
+      window.location.reload();
+    });
+  </script>
+</body>
+</html>

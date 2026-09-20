@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enriched Leads – Singing Bowls Export</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-inner">
+      <a class="brand" href="{{ url_for('index') }}">Singing Bowls Export</a>
+      <div class="nav-links">
+        <a href="{{ url_for('index') }}">Dashboard</a>
+        <a href="{{ url_for('leads_page') }}" class="active">View Leads</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <header class="page-header">
+      <h1>Enriched Leads</h1>
+      <p class="subtitle">Contacts from <code>leads.csv</code> after Hunter.io enrichment.</p>
+      <a class="btn btn-link" href="{{ url_for('index') }}">← Back to Dashboard</a>
+    </header>
+
+    {% if leads %}
+    <div class="table-wrap">
+      <table class="leads-table">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Website</th>
+            <th>Emails</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lead in leads %}
+          <tr>
+            <td data-label="Company">{{ lead.company or "—" }}</td>
+            <td data-label="Website">
+              {% if lead.website %}
+              <a href="{{ lead.website }}" target="_blank" rel="noopener noreferrer">
+                {{ lead.website }}
+              </a>
+              {% else %}
+              —
+              {% endif %}
+            </td>
+            <td data-label="Emails">{{ lead.emails or "—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="hint table-footer">{{ leads|length }} lead(s) total</p>
+    {% else %}
+    <p class="empty-state">
+      No enriched leads yet. Go back to the dashboard and run
+      <strong>Find Leads</strong>, then <strong>Enrich Emails</strong>.
+    </p>
+    {% endif %}
+  </main>
+</body>
+</html>

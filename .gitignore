@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+leads*.csv
+email_log.csv
+errors.log
+venv/
+.venv/
