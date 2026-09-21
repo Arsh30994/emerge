@@ -29,31 +29,64 @@ REQUIRED_KEYS = {
     ),
 }
 
+PLACEHOLDER_MARKERS = (
+    "your_serpapi_key_here",
+    "your_hunter_key_here",
+    "your.email@gmail.com",
+    "your_gmail_app_password",
+    "your-presentation-link",
+)
+
 
 class Config:
     """Application configuration loaded from environment variables."""
 
     def __init__(self):
-        missing = []
-        for key, hint in REQUIRED_KEYS.items():
-            value = os.getenv(key)
-            if not value or not value.strip():
-                missing.append(f"  - {key}: {hint}")
+        demo_flag = os.getenv("DEMO_MODE", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
 
-        if missing:
+        values = {key: (os.getenv(key) or "").strip() for key in REQUIRED_KEYS}
+        missing = [f"  - {key}: {hint}" for key, hint in REQUIRED_KEYS.items() if not values[key]]
+        looks_like_placeholder = any(
+            not values[key]
+            or any(marker in values[key].lower() for marker in PLACEHOLDER_MARKERS)
+            for key in REQUIRED_KEYS
+        )
+
+        self.demo_mode = demo_flag or looks_like_placeholder
+
+        if missing and not self.demo_mode:
             message = (
                 "Missing required environment variable(s).\n"
                 "Copy .env.example to .env and fill in the values:\n"
                 + "\n".join(missing)
+                + "\n\nOr set DEMO_MODE=true to run with sample data."
             )
             logger.error(message)
             raise ValueError(message)
 
-        self.serpapi_key = os.getenv("SERPAPI_KEY").strip()
-        self.hunter_api_key = os.getenv("HUNTER_API_KEY").strip()
-        self.gmail_address = os.getenv("GMAIL_ADDRESS").strip()
-        self.gmail_app_password = os.getenv("GMAIL_APP_PASSWORD").strip()
-        self.presentation_link = os.getenv("PRESENTATION_LINK").strip()
+        if missing and self.demo_mode:
+            logger.warning(
+                "Running in DEMO_MODE with incomplete .env — API calls will be simulated."
+            )
+            for key in REQUIRED_KEYS:
+                if not values[key]:
+                    values[key] = f"demo_{key.lower()}"
+
+        if self.demo_mode:
+            logger.info(
+                "DEMO_MODE enabled - using simulated leads/emails when APIs are unavailable."
+            )
+
+        self.serpapi_key = values["SERPAPI_KEY"]
+        self.hunter_api_key = values["HUNTER_API_KEY"]
+        self.gmail_address = values["GMAIL_ADDRESS"]
+        self.gmail_app_password = values["GMAIL_APP_PASSWORD"]
+        self.presentation_link = values["PRESENTATION_LINK"]
         self.company_name = os.getenv(
             "COMPANY_NAME", "Himalayan Singing Bowls Co."
         ).strip() or "Himalayan Singing Bowls Co."
@@ -66,9 +99,4 @@ class Config:
         self.contact_phone = os.getenv("CONTACT_PHONE", "").strip()
 
 
-try:
-    config = Config()
-except ValueError:
-    # Re-raise so importing modules still fails loudly when misconfigured,
-    # but the detailed message is already in errors.log.
-    raise
+config = Config()

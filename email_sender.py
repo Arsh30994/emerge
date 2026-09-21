@@ -18,6 +18,11 @@ SMTP_PORT = 587
 EMAIL_DELAY_SECONDS = 2.5
 
 
+def _send_delay():
+    """Shorter pause in DEMO_MODE so the dashboard stays responsive."""
+    return 0.15 if getattr(config, "demo_mode", False) else EMAIL_DELAY_SECONDS
+
+
 def build_email_body(lead_company):
     """Build a personalized outreach email body."""
     return f"""Hi,
@@ -45,6 +50,12 @@ def send_single_email(to_address, lead_company):
     """
     if "@" not in to_address or "." not in to_address.split("@")[-1]:
         return False, f"Invalid email address: {to_address}"
+
+    if getattr(config, "demo_mode", False):
+        # Simulate a successful send without hitting Gmail.
+        _ = build_email_body(lead_company or "your company")
+        print(f"  DEMO_MODE: simulated send to {to_address}")
+        return True, ""
 
     body = build_email_body(lead_company or "your company")
     message = MIMEText(body, "plain", "utf-8")
@@ -175,7 +186,7 @@ def send_outreach_emails(input_file="leads.csv", log_file="email_log.csv"):
         )
 
         if index < total:
-            time.sleep(EMAIL_DELAY_SECONDS)
+            time.sleep(_send_delay())
 
     try:
         _append_log(log_file, log_rows)

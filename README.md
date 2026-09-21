@@ -105,6 +105,10 @@ python app.py
 
 Then open: [http://localhost:5000](http://localhost:5000)
 
+### Demo mode
+
+By default `.env.example` sets `DEMO_MODE=true`. With placeholder keys, the app simulates Find Leads / Enrich Emails / Send Emails so you can demo the dashboard without burning API credits. Set `DEMO_MODE=false` and real keys when you want live SerpAPI, Hunter.io, and Gmail.
+
 ## How to use the dashboard
 
 1. **Find Leads**  

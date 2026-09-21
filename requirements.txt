@@ -1,4 +1,4 @@
 flask
-serpapi
+google-search-results
 requests
 python-dotenv

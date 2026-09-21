@@ -33,6 +33,12 @@ def extract_domain(website):
     return host
 
 
+def _demo_emails_for_domain(domain):
+    """Generate deterministic sample emails for DEMO_MODE."""
+    local_parts = ("buyer", "wholesale", "info")
+    return [f"{part}@{domain}" for part in local_parts[:MAX_EMAILS_PER_DOMAIN]]
+
+
 def fetch_emails_for_domain(domain, api_key):
     """
     Call Hunter.io Domain Search for a domain.
@@ -40,6 +46,11 @@ def fetch_emails_for_domain(domain, api_key):
     Returns a list of up to MAX_EMAILS_PER_DOMAIN email addresses.
     On failure, returns an empty list and logs the error.
     """
+    if getattr(config, "demo_mode", False):
+        emails = _demo_emails_for_domain(domain)
+        print(f"  DEMO_MODE: simulated {len(emails)} emails for {domain}")
+        return emails
+
     params = {"domain": domain, "api_key": api_key}
 
     try:
@@ -186,7 +197,8 @@ def enrich_leads(
                 failed_domains += 1
                 print(f"Found 0 emails for {domain}")
 
-            time.sleep(REQUEST_DELAY_SECONDS)
+            delay = 0.15 if getattr(config, "demo_mode", False) else REQUEST_DELAY_SECONDS
+            time.sleep(delay)
 
         emails_str = ";".join(emails)
         if not emails:

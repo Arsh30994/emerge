@@ -23,6 +23,9 @@
       <p class="subtitle">
         Discover wholesale buyers, enrich contact emails, and send personalized outreach — all from one dashboard.
       </p>
+      {% if demo_mode %}
+      <p class="demo-banner">DEMO MODE is on — actions use sample data (no real API/Gmail calls). Set <code>DEMO_MODE=false</code> and real keys in <code>.env</code> for live use.</p>
+      {% endif %}
     </header>
 
     <section class="actions" aria-label="Automation actions">

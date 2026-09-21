@@ -10,6 +10,7 @@ from flask import Flask, jsonify, render_template
 from email_enrichment import enrich_leads
 from email_sender import send_outreach_emails
 from lead_discovery import find_leads
+from config import config
 from utils import log_exception, logger, user_friendly_error
 
 
@@ -97,6 +98,7 @@ def index():
         "index.html",
         stats=stats,
         activity_log=list(reversed(activity_log[-20:])),
+        demo_mode=getattr(config, "demo_mode", False),
     )
 
 

@@ -4,10 +4,16 @@ import csv
 import time
 from urllib.parse import urlparse
 
-from serpapi import GoogleSearch
-
 from config import config
 from utils import log_exception, logger
+
+try:
+    from serpapi import GoogleSearch
+except ImportError:  # pragma: no cover - fallback package name
+    try:
+        from serpapi.google_search import GoogleSearch
+    except ImportError:
+        GoogleSearch = None
 
 
 SEARCH_QUERIES = [
@@ -27,6 +33,57 @@ BUSINESS_KEYWORDS = (
     "company",
     "trading",
 )
+
+DEMO_LEADS = [
+    {
+        "company": "Lotus Wellness Wholesale",
+        "website": "https://www.lotuswellnesswholesale.com",
+        "snippet": "Wholesale importer of meditation and singing bowls for yoga stores across the USA.",
+        "source_query": "singing bowls wholesale buyer email",
+    },
+    {
+        "company": "Zen Imports Trading Co.",
+        "website": "https://www.zenimportstrading.com",
+        "snippet": "Bulk buyer and importer of Himalayan singing bowls and gongs for retailers.",
+        "source_query": "singing bowls importer USA contact",
+    },
+    {
+        "company": "Mindful Living Shop",
+        "website": "https://www.mindfullivingshop.com",
+        "snippet": "Meditation shop specializing in singing bowls, chimes, and wellness gifts.",
+        "source_query": "singing bowls meditation shop contact us",
+    },
+    {
+        "company": "Om Yoga Store",
+        "website": "https://www.omyogastore.com",
+        "snippet": "Yoga store wholesale partner seeking authentic singing bowls and meditation tools.",
+        "source_query": "singing bowls yoga store wholesale",
+    },
+    {
+        "company": "Sacred Sound Importers",
+        "website": "https://www.sacredsoundimporters.com",
+        "snippet": "Company importing singing bowls in bulk for wellness retailers and spas.",
+        "source_query": "buy singing bowls bulk importer",
+    },
+    {
+        "company": "Himalaya Trade Partners",
+        "website": "https://www.himalayatradepartners.com",
+        "snippet": "Trading company sourcing wholesale singing bowls from Nepal and India.",
+        "source_query": "singing bowls wholesale buyer email",
+    },
+    {
+        "company": "Calm Collective Retail",
+        "website": "https://www.calmcollectiveretail.com",
+        "snippet": "Boutique shop and wholesale buyer for meditation bowls and sound healing kits.",
+        "source_query": "singing bowls meditation shop contact us",
+    },
+    {
+        "company": "Pacific Wellness Imports",
+        "website": "https://www.pacificwellnessimports.com",
+        "snippet": "Importer of singing bowls and yoga accessories for West Coast stores.",
+        "source_query": "singing bowls importer USA contact",
+    },
+]
 
 REQUEST_DELAY_SECONDS = 3
 OUTPUT_CSV = "leads_raw.csv"
@@ -59,8 +116,28 @@ def _looks_like_business(title, snippet, link):
     return any(keyword in text for keyword in BUSINESS_KEYWORDS)
 
 
+def _demo_find_leads(num_leads):
+    """Return sample leads when DEMO_MODE is enabled."""
+    print("DEMO_MODE: generating sample singing-bowl buyer leads...")
+    leads = DEMO_LEADS[: max(1, min(num_leads, len(DEMO_LEADS)))]
+    for index, query in enumerate(SEARCH_QUERIES, start=1):
+        print(f"Searching query {index}/{len(SEARCH_QUERIES)}: {query}")
+        matched = sum(1 for lead in leads if lead["source_query"] == query)
+        print(f"Found {matched} leads for this query ({len(leads)} total so far)")
+        time.sleep(0.2)
+    _save_leads_csv(leads)
+    print(f"Saved {len(leads)} leads to {OUTPUT_CSV}")
+    logger.info("DEMO_MODE lead discovery finished: %s leads", len(leads))
+    return leads
+
+
 def _search_google(query):
     """Run a single Google search via SerpAPI. Returns organic results or []."""
+    if GoogleSearch is None:
+        logger.error("SerpAPI client not installed. Run: pip install google-search-results")
+        print("  SerpAPI client missing. Install google-search-results.")
+        return []
+
     params = {
         "engine": "google",
         "q": query,
@@ -99,6 +176,9 @@ def find_leads(num_leads=20):
     Returns a list of dicts with keys: company, website, snippet, source_query.
     Also writes leads_raw.csv. Continues even if individual queries fail.
     """
+    if getattr(config, "demo_mode", False):
+        return _demo_find_leads(num_leads)
+
     leads = []
     seen_websites = set()
     total_queries = len(SEARCH_QUERIES)
