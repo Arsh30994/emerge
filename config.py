@@ -35,7 +35,15 @@ PLACEHOLDER_MARKERS = (
     "your.email@gmail.com",
     "your_gmail_app_password",
     "your-presentation-link",
+    "demo_",
 )
+
+
+def _is_placeholder(value):
+    if not value or not value.strip():
+        return True
+    lower = value.strip().lower()
+    return any(marker in lower for marker in PLACEHOLDER_MARKERS)
 
 
 class Config:
@@ -50,16 +58,26 @@ class Config:
         }
 
         values = {key: (os.getenv(key) or "").strip() for key in REQUIRED_KEYS}
-        missing = [f"  - {key}: {hint}" for key, hint in REQUIRED_KEYS.items() if not values[key]]
-        looks_like_placeholder = any(
-            not values[key]
-            or any(marker in values[key].lower() for marker in PLACEHOLDER_MARKERS)
-            for key in REQUIRED_KEYS
+        missing = [
+            f"  - {key}: {hint}"
+            for key, hint in REQUIRED_KEYS.items()
+            if not values[key]
+        ]
+
+        # Per-service: use the real API when that credential looks real.
+        self.use_real_serpapi = not _is_placeholder(values.get("SERPAPI_KEY", ""))
+        self.use_real_hunter = not _is_placeholder(values.get("HUNTER_API_KEY", ""))
+        self.use_real_gmail = (
+            not _is_placeholder(values.get("GMAIL_ADDRESS", ""))
+            and not _is_placeholder(values.get("GMAIL_APP_PASSWORD", ""))
         )
 
-        self.demo_mode = demo_flag or looks_like_placeholder
+        all_placeholders = not (
+            self.use_real_serpapi or self.use_real_hunter or self.use_real_gmail
+        )
+        self.demo_mode = demo_flag or all_placeholders
 
-        if missing and not self.demo_mode:
+        if missing and not self.demo_mode and all_placeholders:
             message = (
                 "Missing required environment variable(s).\n"
                 "Copy .env.example to .env and fill in the values:\n"
@@ -69,17 +87,17 @@ class Config:
             logger.error(message)
             raise ValueError(message)
 
-        if missing and self.demo_mode:
-            logger.warning(
-                "Running in DEMO_MODE with incomplete .env — API calls will be simulated."
-            )
+        if missing:
             for key in REQUIRED_KEYS:
                 if not values[key]:
                     values[key] = f"demo_{key.lower()}"
 
         if self.demo_mode:
             logger.info(
-                "DEMO_MODE enabled - using simulated leads/emails when APIs are unavailable."
+                "DEMO_MODE on - SerpAPI real=%s, Hunter real=%s, Gmail real=%s",
+                self.use_real_serpapi,
+                self.use_real_hunter,
+                self.use_real_gmail,
             )
 
         self.serpapi_key = values["SERPAPI_KEY"]

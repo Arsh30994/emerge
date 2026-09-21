@@ -176,7 +176,9 @@ def find_leads(num_leads=20):
     Returns a list of dicts with keys: company, website, snippet, source_query.
     Also writes leads_raw.csv. Continues even if individual queries fail.
     """
-    if getattr(config, "demo_mode", False):
+    if getattr(config, "demo_mode", False) and not getattr(
+        config, "use_real_serpapi", False
+    ):
         return _demo_find_leads(num_leads)
 
     leads = []

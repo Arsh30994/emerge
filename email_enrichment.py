@@ -46,7 +46,9 @@ def fetch_emails_for_domain(domain, api_key):
     Returns a list of up to MAX_EMAILS_PER_DOMAIN email addresses.
     On failure, returns an empty list and logs the error.
     """
-    if getattr(config, "demo_mode", False):
+    if getattr(config, "demo_mode", False) and not getattr(
+        config, "use_real_hunter", False
+    ):
         emails = _demo_emails_for_domain(domain)
         print(f"  DEMO_MODE: simulated {len(emails)} emails for {domain}")
         return emails

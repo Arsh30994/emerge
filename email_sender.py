@@ -20,7 +20,11 @@ EMAIL_DELAY_SECONDS = 2.5
 
 def _send_delay():
     """Shorter pause in DEMO_MODE so the dashboard stays responsive."""
-    return 0.15 if getattr(config, "demo_mode", False) else EMAIL_DELAY_SECONDS
+    if getattr(config, "demo_mode", False) and not getattr(
+        config, "use_real_gmail", False
+    ):
+        return 0.15
+    return EMAIL_DELAY_SECONDS
 
 
 def build_email_body(lead_company):
@@ -51,7 +55,9 @@ def send_single_email(to_address, lead_company):
     if "@" not in to_address or "." not in to_address.split("@")[-1]:
         return False, f"Invalid email address: {to_address}"
 
-    if getattr(config, "demo_mode", False):
+    if getattr(config, "demo_mode", False) and not getattr(
+        config, "use_real_gmail", False
+    ):
         # Simulate a successful send without hitting Gmail.
         _ = build_email_body(lead_company or "your company")
         print(f"  DEMO_MODE: simulated send to {to_address}")
