@@ -46,11 +46,18 @@ export default function BreathingModal({ open, onClose }: Props) {
         : "breath-exhale";
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-black/45 p-4" onClick={onClose} role="presentation">
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
+      onClick={onClose}
+      role="presentation"
+      data-testid="breathe-backdrop"
+    >
       <div
         className="animate-rise w-full max-w-sm rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 text-center shadow-2xl backdrop-blur"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
+        aria-label="Breathing exercise"
+        data-testid="breathe-modal"
       >
         <h2 className="font-display text-2xl">4-7-8 Breath</h2>
         <div

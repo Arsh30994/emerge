@@ -23,10 +23,18 @@ export default function SettingsPanel({
 }: Props) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-40 bg-black/45 p-4" onClick={onClose} role="presentation">
+    <div
+      className="fixed inset-0 z-50 bg-black/50 p-4"
+      onClick={onClose}
+      role="presentation"
+      data-testid="settings-backdrop"
+    >
       <aside
         className="animate-rise ml-auto min-h-[520px] w-full max-w-sm rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-2xl backdrop-blur"
         onClick={(e) => e.stopPropagation()}
+        data-testid="settings-panel"
+        role="dialog"
+        aria-label="Settings"
       >
         <header className="mb-4 flex items-center justify-between">
           <h2 className="font-display m-0 text-2xl">Settings</h2>

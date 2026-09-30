@@ -71,17 +71,20 @@ export default function ChatInterface({
         </label>
         <input
           id="msg"
+          data-testid="chat-input"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Type how you're feeling…"
           disabled={busy}
           autoComplete="off"
-          className="flex-1 rounded-xl border border-[var(--line)] bg-white/5 px-4 py-3 text-[var(--ink)] outline-none focus:outline focus:outline-2 focus:outline-gold-400/50"
+          autoFocus
+          className="relative z-10 flex-1 rounded-xl border border-[var(--line)] bg-[color-mix(in_srgb,var(--card)_80%,transparent)] px-4 py-3 text-[var(--ink)] outline-none focus:outline focus:outline-2 focus:outline-[var(--accent)]"
         />
         <button
           type="submit"
+          data-testid="chat-send"
           disabled={busy || !draft.trim()}
-          className="rounded-xl bg-gold-400 px-4 py-3 font-semibold text-[#1a1408] disabled:opacity-50"
+          className="relative z-10 cursor-pointer rounded-xl bg-[var(--accent)] px-4 py-3 font-semibold text-[var(--btn-ink)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Send
         </button>

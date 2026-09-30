@@ -61,7 +61,12 @@ export default function App() {
   const [mood, setMood] = useState<string | null>(null);
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
+    const root = document.documentElement;
+    root.setAttribute("data-theme", theme);
+    root.classList.remove("theme-dark", "theme-light");
+    root.classList.add(theme === "light" ? "theme-light" : "theme-dark");
+    document.body.style.background = "var(--bg0)";
+    document.body.style.color = "var(--ink)";
     localStorage.setItem("soulcare_theme", theme);
   }, [theme]);
 
@@ -80,18 +85,18 @@ export default function App() {
     [messages]
   );
 
-  const logout = useCallback(async () => {
-    try {
-      await api("/auth/logout", { method: "POST" });
-    } catch {
-      /* ignore */
-    }
+  const logout = useCallback(() => {
+    // Clear local session immediately so UI always returns to login
     localStorage.removeItem("soulcare_token");
     localStorage.removeItem("soulcare_user");
     setUser(null);
     setMessages([{ role: "assistant", text: WELCOME, risk: null }]);
     setRisk(null);
+    setTone(null);
+    setVad(null);
     setAgentInfo(null);
+    setError("");
+    void api("/auth/logout", { method: "POST" }).catch(() => undefined);
   }, []);
 
   const sendText = useCallback(
@@ -214,38 +219,50 @@ export default function App() {
   return (
     <div className="relative flex min-h-screen flex-col overflow-x-hidden">
       <div
-        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(900px_480px_at_8%_-8%,rgba(111,191,154,0.2),transparent_55%),radial-gradient(700px_420px_at_100%_0%,rgba(196,163,90,0.16),transparent_50%),linear-gradient(165deg,var(--bg0),var(--bg1))]"
+        className="pointer-events-none fixed inset-0 -z-10"
+        style={{
+          background:
+            "radial-gradient(900px 480px at 8% -8%, rgba(111,191,154,0.18), transparent 55%), radial-gradient(700px 420px at 100% 0%, rgba(196,163,90,0.14), transparent 50%), linear-gradient(165deg, var(--bg0), var(--bg1) 55%, var(--bg2))",
+        }}
         aria-hidden
       />
 
-      <header className="animate-rise flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] px-6 py-4 backdrop-blur md:px-8">
+      <header className="animate-rise relative z-20 flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] px-6 py-4 backdrop-blur md:px-8">
         <div>
           <p className="font-display m-0 text-4xl md:text-5xl">SoulCare</p>
           <p className="mt-1 text-sm text-[var(--muted)]">
             Hello, {user.display_name || user.username}
             {agentic ? " · Agentic mode" : ""}
+            {" · "}
+            {theme === "light" ? "Light theme" : "Dark theme"}
           </p>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="relative z-20 flex flex-wrap items-center justify-end gap-2">
           <OfflineBadge system={system} />
           <button
             type="button"
-            className="rounded-full border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-sm"
+            data-testid="theme-toggle"
+            aria-label="Toggle color theme"
+            className="cursor-pointer rounded-full border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-sm hover:border-[var(--accent)]"
             onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
           >
             {theme === "dark" ? "Light" : "Dark"}
           </button>
           <button
             type="button"
-            className="rounded-full border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-sm"
+            data-testid="settings-open"
+            aria-label="Open settings"
+            className="cursor-pointer rounded-full border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-sm hover:border-[var(--accent)]"
             onClick={() => setSettingsOpen(true)}
           >
             Settings
           </button>
           <button
             type="button"
-            className="rounded-full border border-crisis/40 px-3 py-2 text-sm text-crisis"
-            onClick={() => void logout()}
+            data-testid="logout"
+            aria-label="Log out"
+            className="cursor-pointer rounded-full border border-crisis/40 px-3 py-2 text-sm text-crisis hover:bg-crisis/10"
+            onClick={logout}
           >
             Log out
           </button>
@@ -300,14 +317,29 @@ export default function App() {
               <li>Agent tools: breathe, ground, helpline</li>
               <li>Targets: STT &lt;100ms · risk &lt;50ms · E2E &lt;2s</li>
             </ul>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" className="rounded-full border border-[var(--line)] px-3 py-1.5 text-sm" onClick={() => setBreatheOpen(true)}>
+            <div className="relative z-10 mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                data-testid="breathe-open"
+                className="cursor-pointer rounded-full border border-[var(--line)] bg-[var(--card)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
+                onClick={() => setBreatheOpen(true)}
+              >
                 Breathe
               </button>
-              <button type="button" className="rounded-full border border-[var(--line)] px-3 py-1.5 text-sm" onClick={exportChat}>
+              <button
+                type="button"
+                data-testid="export-chat"
+                className="cursor-pointer rounded-full border border-[var(--line)] bg-[var(--card)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
+                onClick={exportChat}
+              >
                 Export
               </button>
-              <button type="button" className="rounded-full border border-[var(--line)] px-3 py-1.5 text-sm" onClick={() => setAgentic((v) => !v)}>
+              <button
+                type="button"
+                data-testid="agent-toggle"
+                className="cursor-pointer rounded-full border border-[var(--line)] bg-[var(--card)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
+                onClick={() => setAgentic((v) => !v)}
+              >
                 Agent {agentic ? "ON" : "OFF"}
               </button>
             </div>

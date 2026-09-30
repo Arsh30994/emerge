@@ -55,7 +55,13 @@ export default function AuthScreen({ onAuth }: Props) {
   }
 
   return (
-    <div className="relative grid min-h-screen place-items-center overflow-hidden bg-gradient-to-br from-forest-950 via-forest-900 to-forest-800 p-6">
+    <div
+      className="relative grid min-h-screen place-items-center overflow-hidden p-6"
+      style={{
+        background:
+          "radial-gradient(800px 400px at 20% 10%, rgba(111,191,154,0.2), transparent 60%), linear-gradient(160deg, var(--bg0), var(--bg1) 55%, var(--bg2))",
+      }}
+    >
       <div
         className="pointer-events-none absolute h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(196,163,90,0.28),transparent_65%)] blur-md"
         style={{ animation: "floatOrb 8s ease-in-out infinite" }}

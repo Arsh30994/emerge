@@ -18,24 +18,34 @@
 }
 
 :root,
+html[data-theme="dark"],
 [data-theme="dark"] {
   --bg0: #0c1715;
   --bg1: #132622;
+  --bg2: #1a3530;
   --ink: #e8f2ee;
   --muted: #9bb5ac;
-  --card: rgba(15, 28, 26, 0.72);
-  --line: rgba(232, 242, 238, 0.12);
+  --card: rgba(15, 28, 26, 0.82);
+  --line: rgba(232, 242, 238, 0.14);
   --accent: #c4a35a;
+  --accent-soft: rgba(196, 163, 90, 0.18);
+  --btn-ink: #1a1408;
+  color-scheme: dark;
 }
 
+html[data-theme="light"],
 [data-theme="light"] {
   --bg0: #eef6f2;
   --bg1: #dcece4;
+  --bg2: #cfe3d8;
   --ink: #173028;
   --muted: #4f6a60;
-  --card: rgba(255, 255, 255, 0.82);
-  --line: rgba(23, 48, 40, 0.12);
+  --card: rgba(255, 255, 255, 0.9);
+  --line: rgba(23, 48, 40, 0.14);
   --accent: #9a7428;
+  --accent-soft: rgba(154, 116, 40, 0.16);
+  --btn-ink: #1a1408;
+  color-scheme: light;
 }
 
 * {
