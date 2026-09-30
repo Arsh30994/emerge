@@ -11,6 +11,7 @@ __pycache__/
 node_modules/
 **/dist/
 **/dist-electron/
+**/.vite/
 .DS_Store
 
 # Env / secrets / logs
@@ -18,7 +19,7 @@ node_modules/
 .env.local
 *.log
 
-# Large model weights (Whisper / Phi-3) — keep risk joblib optional
+# Large model weights (Whisper / Phi-3 downloads)
 *.pt
 *.bin
 *.onnx
@@ -29,4 +30,3 @@ node_modules/
 # IDE
 .idea/
 .vscode/
-soulcare-snapdragon/frontend/.vite/
