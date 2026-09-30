@@ -1,26 +1,22 @@
 # SoulCare Desktop (Snapdragon AI Lab)
 
-Privacy-first on-device mental health assistant using **Qualcomm AI Hub** models
-(Whisper-Small, Distil-BERT, Phi-3.5-Mini) on Snapdragon X Elite / X Plus.
+Privacy-first **agentic** mental health assistant using Qualcomm AI Hub models
+on Snapdragon X Elite / X Plus HP PCs.
 
-## Start here
+## Quick start
 
 ```bash
+# Backend
 cd soulcare-snapdragon/backend
 pip install -r requirements.txt
 python main.py
-```
 
-```bash
+# Frontend (new terminal)
 cd soulcare-snapdragon/frontend
 npm install
 npm run dev:web
 ```
 
-Full docs: [`soulcare-snapdragon/README.md`](./soulcare-snapdragon/README.md)  
-Architecture: [`soulcare-snapdragon/ARCHITECTURE.md`](./soulcare-snapdragon/ARCHITECTURE.md)
+Open `http://127.0.0.1:5173` and log in with `demo` / `demo123`.
 
-AI Hub references:
-- https://github.com/qualcomm/ai-hub-models
-- https://github.com/qualcomm/ai-hub-apps
-- https://workbench.aihub.qualcomm.com/docs/
+Full documentation: [`soulcare-snapdragon/README.md`](./soulcare-snapdragon/README.md)

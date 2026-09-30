@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-/**
- * ChatInterface — text conversation surface for SoulCare.
- */
 export default function ChatInterface({ messages, busy, onSend }) {
   const [draft, setDraft] = useState("");
   const endRef = useRef(null);
@@ -22,17 +19,22 @@ export default function ChatInterface({ messages, busy, onSend }) {
     <div className="chat">
       <div className="transcript" role="log" aria-live="polite">
         {messages.map((msg, i) => (
-          <article key={i} className={`bubble ${msg.role}`}>
+          <article
+            key={i}
+            className={`bubble ${msg.role}`}
+            style={{ animationDelay: `${Math.min(i, 6) * 40}ms` }}
+          >
             <header>
               <span>{msg.role === "user" ? "You" : "SoulCare"}</span>
               {msg.via === "voice" ? <em>voice</em> : null}
-              {(msg.risk?.risk_level || msg.risk?.label) ? (
+              {msg.agent ? <em>agent</em> : null}
+              {msg.risk?.risk_level || msg.risk?.label ? (
                 <em className={`risk-${msg.risk.risk_level || msg.risk.label}`}>
                   {msg.risk.risk_level || msg.risk.label}
                 </em>
               ) : null}
             </header>
-            <p>{msg.text}</p>
+            <p style={{ whiteSpace: "pre-wrap" }}>{msg.text}</p>
             {msg.helpline ? (
               <p className="helpline-note">
                 Helpline: {msg.helpline.us}. {msg.helpline.disclaimer}
@@ -40,7 +42,7 @@ export default function ChatInterface({ messages, busy, onSend }) {
             ) : null}
           </article>
         ))}
-        {busy ? <p className="thinking">Listening on-device…</p> : null}
+        {busy ? <p className="thinking">Agent thinking on-device…</p> : null}
         <div ref={endRef} />
       </div>
 

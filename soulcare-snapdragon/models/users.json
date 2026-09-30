@@ -1,0 +1,18 @@
+{
+  "users": {
+    "demo": {
+      "username": "demo",
+      "display_name": "Demo User",
+      "salt": "04a72e9cb8067475",
+      "password_hash": "7ba865914f6e3417b205ccc88333ab9fdcee9a9683e46358954820ee86e9e033",
+      "created_at": 1790791910.447638
+    },
+    "judge": {
+      "username": "judge",
+      "display_name": "Hackathon Judge",
+      "salt": "d0562e008f8947b9",
+      "password_hash": "148fb1682de917ecb83b6093c3835cebe51dcb8d45526cc9bd607247b5a0254e",
+      "created_at": 1790791910.447643
+    }
+  }
+}
