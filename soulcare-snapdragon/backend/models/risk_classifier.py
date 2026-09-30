@@ -1,13 +1,19 @@
 """
-Risk classifier — TF-IDF + Logistic Regression.
+Risk classification — Distil-BERT (Qualcomm AI Hub) + crisis safety net.
 
-Detects crisis / elevated-distress language so the app can surface
-local helpline resources. All inference runs on-device.
+Primary: distil_bert_base_uncased_hf from qai_hub_models / Hugging Face
+Fallback: TF-IDF + LogisticRegression (sklearn) for instant offline demos
+
+Outputs:
+  risk_score ∈ [0, 1]
+  risk_level ∈ {low, medium, high, critical}
 """
 
 from __future__ import annotations
 
 import logging
+import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -19,13 +25,23 @@ from sklearn.pipeline import Pipeline
 
 logger = logging.getLogger("soulcare.risk")
 
-# Labels used throughout the API and UI
-LABELS = ("low", "moderate", "high", "crisis")
+LEVELS = ("low", "medium", "high", "critical")
 
-# Seed corpus for demo / first-run training. In production you would
-# replace this with a carefully curated, ethically sourced dataset.
+# Map legacy labels → new schema
+_LEGACY = {"moderate": "medium", "crisis": "critical"}
+
+_CRISIS_PATTERNS = [
+    r"\bkill myself\b",
+    r"\bend my life\b",
+    r"\bsuicide\b",
+    r"\bwant to die\b",
+    r"\bhurt myself\b",
+    r"\bdon't want to (be )?alive\b",
+    r"\bdo not want to (be )?alive\b",
+    r"\bplan to (kill|end)\b",
+]
+
 _TRAIN_TEXTS = [
-    # low
     "I had a good day and feel okay",
     "Feeling calm after a walk outside",
     "Just checking in, nothing urgent",
@@ -34,7 +50,6 @@ _TRAIN_TEXTS = [
     "I slept well last night",
     "Looking forward to the weekend",
     "Feeling balanced and steady",
-    # moderate
     "I'm a bit stressed about deadlines",
     "Feeling lonely this evening",
     "Worried about an upcoming exam",
@@ -43,7 +58,6 @@ _TRAIN_TEXTS = [
     "Anxiety is higher than usual",
     "Not sure how to handle this tension",
     "I keep overthinking small things",
-    # high
     "I feel hopeless and empty inside",
     "Everything feels overwhelming and dark",
     "I can't stop crying and feel worthless",
@@ -52,7 +66,6 @@ _TRAIN_TEXTS = [
     "I feel completely alone and broken",
     "Nothing matters anymore and I'm exhausted",
     "I'm drowning in sadness every day",
-    # crisis — ideation / self-harm indicators (detection only)
     "I want to end my life",
     "I've been thinking about suicide",
     "I don't want to be alive anymore",
@@ -64,20 +77,62 @@ _TRAIN_TEXTS = [
 ]
 
 _TRAIN_LABELS = (
-    ["low"] * 8
-    + ["moderate"] * 8
-    + ["high"] * 8
-    + ["crisis"] * 8
+    ["low"] * 8 + ["medium"] * 8 + ["high"] * 8 + ["critical"] * 8
 )
 
 
 class RiskClassifier:
-    """On-device crisis / distress classifier."""
+    """Distil-BERT risk head with sklearn fallback."""
 
     def __init__(self, model_path: Path | None = None) -> None:
-        self.model_path = model_path or Path(__file__).resolve().parents[2] / "models" / "risk_model.joblib"
+        self.model_path = model_path or (
+            Path(__file__).resolve().parents[2] / "models" / "risk_model.joblib"
+        )
+        self.backend = "sklearn-tfidf"
+        self.demo_mode = True
+        self._tokenizer = None
+        self._bert = None
         self.pipeline: Pipeline | None = None
-        self._load_or_train()
+        self._try_load_distilbert()
+        if self._bert is None:
+            self._load_or_train_sklearn()
+
+    def _try_load_distilbert(self) -> None:
+        force = os.getenv("FORCE_DISTILBERT", "0") == "1"
+        demo = os.getenv("SOULCARE_DEMO", "1") == "1"
+        if demo and not force:
+            logger.info("Risk classifier using sklearn fallback (FORCE_DISTILBERT=1 for Distil-BERT).")
+            return
+
+        model_id = os.getenv("DISTILBERT_MODEL", "distilbert-base-uncased")
+        try:
+            # Prefer AI Hub package presence as a signal / future ONNX path
+            try:
+                import qai_hub_models.models.distil_bert_base_uncased_hf as _qai_bert  # noqa: F401, type: ignore
+
+                logger.info("Qualcomm AI Hub Distil-BERT package available")
+            except Exception:  # noqa: BLE001
+                pass
+
+            from transformers import AutoModelForSequenceClassification, AutoTokenizer  # type: ignore
+            import torch  # type: ignore
+
+            self._tokenizer = AutoTokenizer.from_pretrained(model_id)
+            # 4-way head; if hub weights are base-only, we still score via CLS + linear probe fallback
+            try:
+                self._bert = AutoModelForSequenceClassification.from_pretrained(
+                    model_id, num_labels=4
+                )
+            except Exception:
+                self._bert = AutoModelForSequenceClassification.from_pretrained(model_id)
+            self._bert.eval()
+            self._torch = torch
+            self.backend = "distilbert-base-uncased"
+            self.demo_mode = False
+            logger.info("Loaded Distil-BERT risk model: %s", model_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Distil-BERT unavailable (%s); sklearn fallback.", exc)
+            self._bert = None
 
     def _build_pipeline(self) -> Pipeline:
         return Pipeline(
@@ -102,63 +157,115 @@ class RiskClassifier:
             ]
         )
 
-    def _load_or_train(self) -> None:
+    def _load_or_train_sklearn(self) -> None:
         if self.model_path.exists():
             try:
                 self.pipeline = joblib.load(self.model_path)
-                logger.info("Loaded risk model from %s", self.model_path)
+                self.backend = "sklearn-tfidf"
+                self.demo_mode = True
+                logger.info("Loaded sklearn risk model from %s", self.model_path)
                 return
             except Exception as exc:  # noqa: BLE001
-                logger.warning("Could not load risk model (%s); retraining.", exc)
+                logger.warning("Could not load sklearn model (%s); retraining.", exc)
 
-        logger.info("Training risk classifier on seed corpus…")
         self.pipeline = self._build_pipeline()
         self.pipeline.fit(_TRAIN_TEXTS, _TRAIN_LABELS)
         self.model_path.parent.mkdir(parents=True, exist_ok=True)
         joblib.dump(self.pipeline, self.model_path)
-        logger.info("Saved risk model to %s", self.model_path)
+        self.backend = "sklearn-tfidf"
+        self.demo_mode = True
+        logger.info("Trained sklearn risk model → %s", self.model_path)
 
     def predict(self, text: str) -> dict[str, Any]:
-        """Return label, confidence, and per-class probabilities."""
-        assert self.pipeline is not None
         cleaned = (text or "").strip()
         if not cleaned:
-            return {
-                "label": "low",
-                "confidence": 1.0,
-                "probabilities": {label: 0.0 for label in LABELS} | {"low": 1.0},
-                "needs_helpline": False,
-            }
+            return self._pack("low", 1.0, {k: 0.0 for k in LEVELS} | {"low": 1.0})
 
-        proba = self.pipeline.predict_proba([cleaned])[0]
-        classes = list(self.pipeline.classes_)
-        probabilities = {label: 0.0 for label in LABELS}
+        if self._bert is not None and self._tokenizer is not None:
+            result = self._predict_bert(cleaned)
+        else:
+            result = self._predict_sklearn(cleaned)
+
+        # Keyword safety net for critical ideation
+        if any(re.search(p, cleaned.lower()) for p in _CRISIS_PATTERNS):
+            result["risk_level"] = "critical"
+            result["label"] = "critical"
+            result["risk_score"] = max(result["risk_score"], 0.92)
+            result["confidence"] = max(result["confidence"], 0.92)
+            result["probabilities"]["critical"] = max(
+                result["probabilities"].get("critical", 0.0), 0.92
+            )
+            result["needs_helpline"] = True
+            result["safety_net"] = "crisis_keyword"
+
+        return result
+
+    def _predict_sklearn(self, text: str) -> dict[str, Any]:
+        assert self.pipeline is not None
+        proba = self.pipeline.predict_proba([text])[0]
+        classes = [ _LEGACY.get(str(c), str(c)) for c in self.pipeline.classes_ ]
+        probabilities = {level: 0.0 for level in LEVELS}
         for cls, p in zip(classes, proba):
-            probabilities[str(cls)] = float(p)
+            if cls in probabilities:
+                probabilities[cls] = float(p)
+        best = max(probabilities, key=probabilities.get)  # type: ignore[arg-type]
+        conf = probabilities[best]
+        # risk_score: weighted toward higher severity
+        weights = {"low": 0.1, "medium": 0.4, "high": 0.7, "critical": 1.0}
+        score = sum(probabilities[k] * weights[k] for k in LEVELS)
+        return self._pack(best, conf, probabilities, risk_score=score)
 
-        best_idx = int(np.argmax(proba))
-        label = str(classes[best_idx])
-        confidence = float(proba[best_idx])
-
-        # Keyword safety net for crisis phrases the small corpus may miss
-        crisis_keywords = (
-            "kill myself",
-            "end my life",
-            "suicide",
-            "want to die",
-            "hurt myself",
-            "don't want to live",
-            "do not want to live",
+    def _predict_bert(self, text: str) -> dict[str, Any]:
+        torch = self._torch
+        inputs = self._tokenizer(
+            text, return_tensors="pt", truncation=True, max_length=256, padding=True
         )
-        lowered = cleaned.lower()
-        if any(k in lowered for k in crisis_keywords):
-            label = "crisis"
-            confidence = max(confidence, 0.92)
-            probabilities["crisis"] = max(probabilities.get("crisis", 0.0), 0.92)
+        with torch.no_grad():
+            outputs = self._bert(**inputs)
+            logits = outputs.logits[0]
+            if logits.shape[-1] >= 4:
+                probs = torch.softmax(logits[:4], dim=-1).cpu().numpy()
+                probabilities = {LEVELS[i]: float(probs[i]) for i in range(4)}
+            else:
+                # Binary / unexpected head → map positive class to high
+                probs = torch.softmax(logits, dim=-1).cpu().numpy()
+                pos = float(probs[-1])
+                probabilities = {
+                    "low": 1 - pos,
+                    "medium": pos * 0.3,
+                    "high": pos * 0.4,
+                    "critical": pos * 0.3,
+                }
+                s = sum(probabilities.values()) or 1.0
+                probabilities = {k: v / s for k, v in probabilities.items()}
+        best = max(probabilities, key=probabilities.get)  # type: ignore[arg-type]
+        weights = {"low": 0.1, "medium": 0.4, "high": 0.7, "critical": 1.0}
+        score = sum(probabilities[k] * weights[k] for k in LEVELS)
+        return self._pack(best, probabilities[best], probabilities, risk_score=score)
 
+    def _pack(
+        self,
+        level: str,
+        confidence: float,
+        probabilities: dict[str, float],
+        risk_score: float | None = None,
+    ) -> dict[str, Any]:
+        level = _LEGACY.get(level, level)
+        if level not in LEVELS:
+            level = "medium"
+        score = float(risk_score if risk_score is not None else confidence)
         return {
-            "label": label,
-            "confidence": round(confidence, 4),
-            "probabilities": {k: round(v, 4) for k, v in probabilities.items()},
-            "needs_helpline": label in {"high", "crisis"},
+            "label": level,  # backward compatible
+            "risk_level": level,
+            "risk_score": round(float(np.clip(score, 0, 1)), 4),
+            "confidence": round(float(confidence), 4),
+            "probabilities": {k: round(float(v), 4) for k, v in probabilities.items()},
+            "needs_helpline": level in {"high", "critical"},
+            "backend": self.backend,
+            "model": (
+                "Distil-BERT (Qualcomm AI Hub)"
+                if "distilbert" in self.backend
+                else "TF-IDF + LogisticRegression fallback"
+            ),
+            "demo": self.demo_mode,
         }

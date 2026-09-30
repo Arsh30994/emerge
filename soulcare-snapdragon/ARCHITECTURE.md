@@ -1,79 +1,85 @@
-# SoulCare Architecture
+# SoulCare Architecture — Qualcomm AI Hub on Snapdragon
 
 ## System diagram
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                 SoulCare Desktop (Electron)                 │
-│  React UI  ·  VoiceInput  ·  ChatInterface  ·  RiskIndicator │
-└────────────────────────────┬────────────────────────────────┘
-                             │  localhost HTTP
-                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│              FastAPI backend (Python, on-device)             │
-│                                                             │
-│   /voice-chat ──► Whisper STT ──► Tone (librosa)            │
-│                         │                │                  │
-│                         ▼                ▼                  │
-│                   Risk Classifier ◄── user text             │
-│                   (TF-IDF + LogReg)                         │
-│                         │                                   │
-│                         ▼                                   │
-│               Response Generator                            │
-│               (rules  |  Phi-3-mini local)                  │
-│                         │                                   │
-│                         ▼                                   │
-│               PerformanceMonitor (latency, RSS)             │
-└─────────────────────────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Snapdragon X / X Elite HP PC                   │
-│   Hexagon NPU  ·  Adreno GPU  ·  Oryon CPU  ·  LPDDR        │
-│   All tensors & audio buffers stay in local memory          │
-└─────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│              SoulCare Desktop (Electron + React)               │
+│  VoiceInput + VAD meter · Chat · RiskIndicator · OfflineBadge  │
+└─────────────────────────────┬──────────────────────────────────┘
+                              │ localhost only
+                              ▼
+┌────────────────────────────────────────────────────────────────┐
+│                    FastAPI (on-device)                          │
+│                                                                │
+│  audio ─► Silero-VAD ─► Whisper-Small (AI Hub)                 │
+│                              │                                 │
+│                              ▼                                 │
+│                     Distil-BERT risk                           │
+│                     (low/medium/high/critical)                 │
+│                              │                                 │
+│                              ▼                                 │
+│                  Phi-3.5-Mini-Instruct                         │
+│                  (supportive reply + safety)                   │
+│                              │                                 │
+│                     SnapdragonBenchmarks                       │
+│                     (latency, tok/s, RSS)                      │
+└─────────────────────────────┬──────────────────────────────────┘
+                              ▼
+┌────────────────────────────────────────────────────────────────┐
+│           Snapdragon X Elite / X Plus HP PC                    │
+│     Hexagon NPU (45 TOPS) · Adreno GPU · Oryon CPU             │
+│     ONNX Runtime + QNN EP  ·  QAIRT                            │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-## Data flow (privacy)
+## Model choices (AI Hub)
 
-1. Microphone audio is captured in the Chromium/Electron renderer.
-2. Bytes are posted to `127.0.0.1` only — never to a public STT API.
-3. Whisper (or demo STT) returns text in-process.
-4. Risk + tone models score the utterance locally.
-5. A supportive reply is generated locally (rules or Phi-3).
-6. Optional metrics are kept in-memory for the `/metrics` endpoint.
+| Role | Package | Why |
+|------|---------|-----|
+| STT | `qai_hub_models.models.whisper_small` | 244MB, 12.5× RT on Snapdragon |
+| VAD | Silero-VAD | ~2MB gate before Whisper |
+| Risk | `distil_bert_base_uncased_hf` | 67MB, 100+ inf/sec |
+| LLM | `phi_3_5_mini_instruct` | 2.1GB, ~42 tok/s w4a16 NPU |
 
-**No telemetry leaves the device in the MVP.**
+Fetch assets:
 
-## Snapdragon integration
-
-| Workload | Model | Preferred accelerator | Notes |
-|----------|-------|-----------------------|-------|
-| Speech-to-text | Whisper `base` / `small` | **NPU** (QNN) or **GPU** (DirectML) | Export ONNX; INT8 for NPU |
-| Risk | sklearn TF-IDF + LogReg | **CPU** | ~KB model; NPU not needed |
-| Tone | librosa RMS / ZCR / pitch | **CPU** / Hexagon DSP | Feature extract only |
-| Response | Phi-3-mini-4k INT4/INT8 | **NPU** / **GPU** | ONNX Runtime GenAI / ExecuTorch |
-
-### Enabling hardware EP (Windows on Snapdragon)
-
-```text
-1. Install Qualcomm AI Hub / ONNX Runtime with QNN execution provider
-2. Export Whisper encoder/decoder to ONNX
-3. Set SOULCARE_ACCEL=npu   (or gpu)
-4. Point FORCE_WHISPER=1 / FORCE_PHI3=1 at the optimized graphs
+```bash
+qai-hub-models fetch Whisper-Small --runtime qnn_context_binary
+qai-hub-models fetch Phi-3.5-Mini-Instruct --runtime qnn_context_binary --precision w4a16
 ```
 
-`backend/utils/snapdragon_optimization.py` detects ARM/Qualcomm when possible and records the preferred unit in `/system` and `/health`.
+Sample native apps: https://github.com/qualcomm/ai-hub-apps  
+Workbench docs: https://workbench.aihub.qualcomm.com/docs/
 
-## Why this architecture wins the Snapdragon story
+## NPU utilization
 
-- **Local inference only** — cloud LLMs are explicitly out of scope.
-- **Heterogeneous compute** — heavy neural nets → NPU/GPU; classical ML → CPU.
-- **Measurable** — every stage emits latency + memory for live demos.
-- **Graceful demo mode** — judges can run the full path without multi-GB downloads, then flip env flags for the real stack on HP Snapdragon hardware.
+1. **Whisper-Small encoder/decoder** → NPU (QNN) or GPU (DirectML)
+2. **Distil-BERT** → NPU INT8/FP
+3. **Phi-3.5-Mini** → NPU w4a16 context binary (or llama.cpp)
+4. **Silero-VAD + librosa** → CPU (overkill for NPU)
 
-## Threat / safety model
+`SOULCARE_ACCEL=npu|gpu|cpu` selects the preferred unit reported in `/health`.
 
-- Crisis keywords + classifier escalate UI + helpline copy.
-- Response generator refuses to provide self-harm methods (prompt + crisis templates).
-- Electron uses `contextIsolation` and no Node integration in the renderer.
+## Privacy & offline
+
+- Renderer → `127.0.0.1` only
+- No OpenAI / Gemini on Snapdragon builds (`SOULCARE_CLOUD_FALLBACK=0`)
+- Optional Groq fallback exists **only** for non-Snapdragon hackathon laptops — never the production story
+- Works without internet once AI Hub assets are cached under `models/`
+
+## Performance budget
+
+| Stage | Budget |
+|-------|--------|
+| VAD | &lt; 10ms |
+| Whisper-Small | &lt; 100ms (chunk) |
+| Distil-BERT | &lt; 50ms |
+| Phi-3.5 | 42 tok/s |
+| E2E | &lt; 2s |
+| RSS | ~2.5GB |
+
+## Safety path
+
+Critical keyword net + classifier → helpline templates (988 / IASP).  
+Phi-3.5 system prompt forbids self-harm methods; critical turns use fixed templates.

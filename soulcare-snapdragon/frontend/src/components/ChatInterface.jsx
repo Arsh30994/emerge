@@ -26,7 +26,11 @@ export default function ChatInterface({ messages, busy, onSend }) {
             <header>
               <span>{msg.role === "user" ? "You" : "SoulCare"}</span>
               {msg.via === "voice" ? <em>voice</em> : null}
-              {msg.risk?.label ? <em className={`risk-${msg.risk.label}`}>{msg.risk.label}</em> : null}
+              {(msg.risk?.risk_level || msg.risk?.label) ? (
+                <em className={`risk-${msg.risk.risk_level || msg.risk.label}`}>
+                  {msg.risk.risk_level || msg.risk.label}
+                </em>
+              ) : null}
             </header>
             <p>{msg.text}</p>
             {msg.helpline ? (

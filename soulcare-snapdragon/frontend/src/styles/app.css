@@ -66,26 +66,65 @@ body {
   font-size: 0.95rem;
 }
 
-.status-pills {
+.offline-badge {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: flex-end;
-}
-
-.pill {
+  gap: 0.7rem;
+  align-items: center;
+  max-width: 340px;
+  padding: 0.65rem 0.9rem;
+  border-radius: 14px;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.78rem;
-  color: var(--muted);
-  background: rgba(15, 28, 26, 0.45);
+  background: rgba(15, 28, 26, 0.55);
 }
 
-.pill.accent {
-  color: var(--accent);
-  border-color: rgba(196, 163, 90, 0.45);
-  background: var(--accent-soft);
+.offline-badge.local {
+  border-color: rgba(111, 191, 154, 0.45);
+}
+
+.offline-badge.mixed {
+  border-color: rgba(212, 160, 23, 0.45);
+}
+
+.offline-badge .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--safe);
+  box-shadow: 0 0 0 0 rgba(111, 191, 154, 0.5);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.offline-badge.mixed .dot {
+  background: var(--warn);
+}
+
+.offline-badge strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.offline-badge small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  margin-top: 0.15rem;
+}
+
+.vad-meter {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 36px;
+  min-width: 120px;
+}
+
+.vad-meter i {
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--accent), var(--safe));
+  display: block;
+  transition: height 80ms linear;
 }
 
 .layout {
@@ -284,8 +323,10 @@ body {
 }
 
 .level-low .risk-label { color: var(--safe); }
-.level-moderate .risk-label { color: var(--warn); }
+.level-medium .risk-label,
+.level-moderate .risk-label { color: #e6c35c; }
 .level-high .risk-label { color: var(--alert); }
+.level-critical .risk-label,
 .level-crisis .risk-label { color: var(--crisis); }
 
 .prob-bars {

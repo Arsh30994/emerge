@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import ChatInterface from "./components/ChatInterface.jsx";
+import OfflineBadge from "./components/OfflineBadge.jsx";
 import RiskIndicator from "./components/RiskIndicator.jsx";
 import VoiceInput from "./components/VoiceInput.jsx";
 
@@ -9,22 +10,23 @@ export default function App() {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      text: "Hi — I'm SoulCare. I run entirely on your device. Nothing you share leaves this PC. How are you feeling?",
+      text: "Hi — I'm SoulCare. I run on Qualcomm AI Hub models on your device. Nothing you share leaves this PC. How are you feeling?",
       risk: null,
     },
   ]);
   const [risk, setRisk] = useState(null);
   const [tone, setTone] = useState(null);
+  const [vad, setVad] = useState(null);
   const [busy, setBusy] = useState(false);
   const [system, setSystem] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`${API_BASE}/system`)
+    fetch(`${API_BASE}/health`)
       .then((r) => r.json())
       .then(setSystem)
       .catch(() =>
-        setError("Backend offline. Start it with: cd soulcare-snapdragon/backend && python main.py")
+        setError("Backend offline. Start: cd soulcare-snapdragon/backend && python main.py")
       );
   }, []);
 
@@ -51,6 +53,7 @@ export default function App() {
           risk: data.risk,
           helpline: data.response.helpline,
           metrics: data.metrics,
+          model: data.response.model,
         },
       ]);
     } catch (err) {
@@ -76,6 +79,7 @@ export default function App() {
       const data = await res.json();
       setRisk(data.risk);
       setTone(data.tone);
+      setVad(data.vad);
       setMessages((m) => [
         ...m,
         {
@@ -89,6 +93,7 @@ export default function App() {
           text: data.response.reply,
           risk: data.risk,
           helpline: data.response.helpline,
+          model: data.response.model,
         },
       ]);
     } catch (err) {
@@ -98,47 +103,43 @@ export default function App() {
     }
   }, [busy]);
 
-  const accel = system?.snapdragon?.preferred_accelerator || "…";
-
   return (
     <div className="shell">
       <header className="topbar">
         <div className="brand-block">
           <p className="brand">SoulCare</p>
-          <p className="tagline">On-device mental health companion</p>
+          <p className="tagline">On-device mental health · Qualcomm AI Hub</p>
         </div>
-        <div className="status-pills">
-          <span className="pill">Offline-capable</span>
-          <span className="pill">Privacy-first</span>
-          <span className="pill accent">Snapdragon · {accel}</span>
-        </div>
+        <OfflineBadge system={system} />
       </header>
 
       <main className="layout">
         <section className="stage">
           <ChatInterface messages={messages} busy={busy} onSend={sendText} />
-          <VoiceInput busy={busy} onAudio={sendVoice} />
+          <VoiceInput busy={busy} onAudio={sendVoice} vadPreview={vad} />
           {error ? <p className="error">{error}</p> : null}
         </section>
 
         <aside className="side">
-          <RiskIndicator risk={risk} tone={tone} />
+          <RiskIndicator risk={risk} tone={tone} vad={vad} />
           <div className="panel">
-            <h2>On this device</h2>
+            <h2>AI Hub models</h2>
             <ul className="facts">
-              <li>Speech → Whisper (local)</li>
-              <li>Risk → TF-IDF + LogReg</li>
-              <li>Tone → librosa features</li>
-              <li>Reply → rules / Phi-3 local</li>
+              <li>STT — Whisper-Small (244MB)</li>
+              <li>VAD — Silero (~2MB)</li>
+              <li>Risk — Distil-BERT (67MB)</li>
+              <li>Reply — Phi-3.5-Mini (2.1GB)</li>
             </ul>
             <p className="fineprint">
-              Mental health data never leaves this laptop. No OpenAI, Gemini, or cloud APIs.
+              Optimized for Snapdragon X Elite NPU (45 TOPS) via ONNX Runtime + QNN.
+              Mental health data never leaves this laptop.
             </p>
-            {system?.components ? (
+            {system?.models ? (
               <dl className="meta">
-                <div><dt>STT</dt><dd>{system.components.stt}</dd></div>
-                <div><dt>Tone</dt><dd>{system.components.tone}</dd></div>
-                <div><dt>LLM</dt><dd>{system.components.response}</dd></div>
+                <div><dt>STT</dt><dd>{system.models.stt}</dd></div>
+                <div><dt>VAD</dt><dd>{system.models.vad}</dd></div>
+                <div><dt>Risk</dt><dd>{system.models.risk}</dd></div>
+                <div><dt>LLM</dt><dd>{system.models.response}</dd></div>
               </dl>
             ) : null}
           </div>

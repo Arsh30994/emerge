@@ -1,89 +1,43 @@
-# SoulCare Pitch Deck (speaker notes)
+# SoulCare Pitch Deck
 
 Snapdragon AI Lab — Build & Present Challenge
 
 ---
 
-## Slide 1 — Title
+## Slide 1 — Problem
+Cloud AI privacy concerns: mental-health transcripts leave the device; offline users are stranded; API costs scale with suffering.
 
-**SoulCare**  
-On-device mental health companion for Snapdragon HP PCs
+## Slide 2 — Solution
+**SoulCare Desktop** — privacy-first companion with 100% on-device inference on Snapdragon HP PCs.
 
-Tagline: *Your feelings stay on your laptop.*
-
----
-
-## Slide 2 — Problem
-
-- Mental health support is increasingly mediated by **cloud LLMs**
-- Sensitive transcripts leave the device → privacy, compliance, trust risk
-- Connectivity gaps (dorms, clinics, travel) break cloud-only tools
-- Students need something **immediate, private, and safe**
-
----
-
-## Slide 3 — Solution
-
-SoulCare Desktop:
-
-1. Speak or type
-2. Local Whisper understands you
-3. On-device risk + tone models listen for distress
-4. Supportive reply generated locally (rules / Phi-3-mini)
-5. Crisis language surfaces **988 / local helplines**
-
-**Zero cloud AI calls.**
-
----
+## Slide 3 — How It Works
+Mic → Silero-VAD → Whisper-Small → Distil-BERT risk → Phi-3.5-Mini reply → UI risk pulse. FastAPI + Electron. Localhost only.
 
 ## Slide 4 — Why Snapdragon
+- Hexagon NPU **45 TOPS** (vs Apple M3 ~18 TOPS)
+- Offline + private + low latency
+- ONNX Runtime + **QNN** execution provider
+- $0 per inference
 
-| Cloud chatbot | SoulCare on Snapdragon |
-|---------------|------------------------|
-| Data leaves device | Data never leaves PC |
-| Network latency | Local NPU/GPU inference |
-| Needs internet | Offline-capable |
-| Generic hardware | Tuned for Hexagon NPU + Adreno |
+## Slide 5 — Model Choices (AI Hub)
+| Model | Role | Size |
+|-------|------|------|
+| Whisper-Small | STT | 244MB |
+| Silero-VAD | Speech gate | ~2MB |
+| Distil-BERT | Risk | 67MB |
+| Phi-3.5-Mini-Instruct | Response | 2.1GB |
 
-Heterogeneous map:
+Sources: [ai-hub-models](https://github.com/qualcomm/ai-hub-models) · [ai-hub-apps](https://github.com/qualcomm/ai-hub-apps)
 
-- Whisper / Phi-3 → **NPU or GPU**
-- Risk (TF-IDF + LogReg) → **CPU**
-- Tone features → **CPU / DSP**
+## Slide 6 — Performance
+- STT &lt; 100ms · Risk &lt; 50ms · ~42 tok/s · E2E &lt; 2s · ~2.5GB RAM  
+- Live: `GET /benchmarks`
 
----
+## Slide 7 — Impact
+Privacy for students & workers · Accessibility offline · Trust via OfflineBadge · Crisis routing to 988
 
-## Slide 5 — Product demo highlights
+## Slide 8 — Demo
+Live voice + text on HP Snapdragon laptop; show NPU accelerator field in `/health`.
 
-- Electron + React desktop shell
-- FastAPI local backend
-- Live risk pulse + voice tone
-- `/metrics` latency & memory for judges
-
----
-
-## Slide 6 — Tech stack (open source only)
-
-- Whisper — speech-to-text
-- scikit-learn — crisis / distress classifier
-- librosa — affective acoustic features
-- Phi-3-mini (optional) — local generative replies
-- FastAPI + Electron — packaging for Windows on Snapdragon
-
----
-
-## Slide 7 — Safety & ethics
-
-- Companion ≠ clinician
-- Crisis detection routes to human helplines
-- No self-harm instructions
-- Transparent “on-device” status in UI
-
----
-
-## Slide 8 — Ask / vision
-
-Near term: ship portable `.exe` for HP Snapdragon laptops with Qualcomm AI Stack EP.  
-Next: NPU-quantized Whisper + Phi-3 graphs, optional clinician dashboard that still keeps raw audio on-device.
-
-**SoulCare makes private mental health AI practical — because Snapdragon runs it locally.**
+## Slide 9 — Future
+Multimodal VLM mood cues · camera-based affect (on-device) · clinician dashboard that never sees raw audio off-box · tighter QNN graphs from AI Hub Workbench

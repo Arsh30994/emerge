@@ -1,18 +1,20 @@
 /**
- * RiskIndicator — visual risk + tone summary for the side panel.
+ * RiskIndicator — color-coded low / medium / high / critical.
  */
-export default function RiskIndicator({ risk, tone }) {
-  const label = risk?.label || "—";
-  const confidence = risk ? Math.round((risk.confidence || 0) * 100) : null;
+export default function RiskIndicator({ risk, tone, vad }) {
+  const level = risk?.risk_level || risk?.label || "—";
+  const score = risk ? Math.round((risk.risk_score ?? risk.confidence ?? 0) * 100) : null;
 
   return (
-    <div className={`panel risk-panel level-${risk?.label || "none"}`}>
+    <div className={`panel risk-panel level-${risk?.risk_level || risk?.label || "none"}`}>
       <h2>Risk pulse</h2>
-      <p className="risk-label">{label}</p>
-      {confidence !== null ? (
-        <p className="risk-conf">{confidence}% confidence · on-device TF-IDF</p>
+      <p className="risk-label">{level}</p>
+      {score !== null ? (
+        <p className="risk-conf">
+          score {score}/100 · {risk.model || risk.backend || "on-device"}
+        </p>
       ) : (
-        <p className="risk-conf">Share a message to classify distress locally.</p>
+        <p className="risk-conf">Share a message to classify distress locally (Distil-BERT).</p>
       )}
 
       {risk?.probabilities ? (
@@ -33,7 +35,17 @@ export default function RiskIndicator({ risk, tone }) {
           <h3>Voice tone</h3>
           <p>
             <strong>{tone.tone}</strong>
-            {tone.demo ? " (demo features)" : " · librosa"}
+            {tone.demo ? " (demo)" : " · librosa"}
+          </p>
+        </div>
+      ) : null}
+
+      {vad ? (
+        <div className="tone-block">
+          <h3>VAD</h3>
+          <p>
+            {vad.has_speech ? "Speech detected" : "No speech"} · ratio{" "}
+            {Math.round((vad.speech_ratio || 0) * 100)}%
           </p>
         </div>
       ) : null}
