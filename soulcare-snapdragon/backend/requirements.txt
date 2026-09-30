@@ -20,13 +20,8 @@ soundfile>=0.12.0
 psutil>=6.0.0
 aiofiles>=24.0.0
 
-# Optional local neural stacks (install on Snapdragon HP PC):
+# Snapdragon / Qualcomm AI Hub (install on HP X Elite PC):
+#   pip install qai_hub_models qai_hub_models_cli
 #   pip install "qai-hub-models[whisper-small]"
-#   pip install qai_hub_models_cli
-#   pip install torch transformers accelerate
+#   pip install torch transformers accelerate onnxruntime
 # openai-whisper>=20231117
-# torch>=2.2.0
-# transformers>=4.44.0
-# accelerate>=0.33.0
-# qai-hub-models
-# qai_hub_models_cli

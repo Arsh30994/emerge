@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/components/AgentSteps.tsx","./src/components/AuthScreen.tsx","./src/components/BreathingModal.tsx","./src/components/ChatInterface.tsx","./src/components/OfflineBadge.tsx","./src/components/RiskIndicator.tsx","./src/components/SettingsPanel.tsx","./src/components/VoiceInput.tsx"],"version":"5.9.3"}

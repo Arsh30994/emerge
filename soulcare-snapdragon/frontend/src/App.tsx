@@ -1,40 +1,64 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "./api.js";
-import AgentSteps from "./components/AgentSteps.jsx";
-import AuthScreen from "./components/AuthScreen.jsx";
-import BreathingModal from "./components/BreathingModal.jsx";
-import ChatInterface from "./components/ChatInterface.jsx";
-import OfflineBadge from "./components/OfflineBadge.jsx";
-import RiskIndicator from "./components/RiskIndicator.jsx";
-import SettingsPanel from "./components/SettingsPanel.jsx";
-import VoiceInput from "./components/VoiceInput.jsx";
+import { api, API_BASE } from "./api";
+import AgentSteps from "./components/AgentSteps";
+import AuthScreen from "./components/AuthScreen";
+import BreathingModal from "./components/BreathingModal";
+import ChatInterface from "./components/ChatInterface";
+import OfflineBadge from "./components/OfflineBadge";
+import RiskIndicator from "./components/RiskIndicator";
+import SettingsPanel from "./components/SettingsPanel";
+import VoiceInput from "./components/VoiceInput";
+import type {
+  AgentInfo,
+  AuthUser,
+  ChatResponse,
+  Message,
+  RiskResult,
+  SystemStatus,
+  ToneResult,
+  VadResult,
+} from "./types";
 
 const WELCOME =
   "Hi — I'm SoulCare, your on-device agentic companion. I use Qualcomm AI Hub models on this PC. Nothing leaves the device. How are you feeling?";
 
-function loadUser() {
+function loadUser(): AuthUser | null {
   try {
-    return JSON.parse(localStorage.getItem("soulcare_user") || "null");
+    return JSON.parse(localStorage.getItem("soulcare_user") || "null") as AuthUser | null;
   } catch {
     return null;
   }
 }
 
+interface ChatApiResult {
+  risk: RiskResult;
+  response: ChatResponse;
+  agent?: AgentInfo | null;
+  tone?: ToneResult | null;
+  vad?: VadResult | null;
+  transcript?: { text?: string };
+}
+
 export default function App() {
-  const [user, setUser] = useState(loadUser);
-  const [theme, setTheme] = useState(() => localStorage.getItem("soulcare_theme") || "dark");
+  const [user, setUser] = useState<AuthUser | null>(loadUser);
+  const [theme, setTheme] = useState<"dark" | "light">(
+    () => (localStorage.getItem("soulcare_theme") as "dark" | "light") || "dark"
+  );
   const [agentic, setAgentic] = useState(() => localStorage.getItem("soulcare_agentic") !== "0");
-  const [messages, setMessages] = useState([{ role: "assistant", text: WELCOME, risk: null }]);
-  const [risk, setRisk] = useState(null);
-  const [tone, setTone] = useState(null);
-  const [vad, setVad] = useState(null);
-  const [agentInfo, setAgentInfo] = useState(null);
+  const [messages, setMessages] = useState<Message[]>([
+    { role: "assistant", text: WELCOME, risk: null },
+  ]);
+  const [draft, setDraft] = useState("");
+  const [risk, setRisk] = useState<RiskResult | null>(null);
+  const [tone, setTone] = useState<ToneResult | null>(null);
+  const [vad, setVad] = useState<VadResult | null>(null);
+  const [agentInfo, setAgentInfo] = useState<AgentInfo | null>(null);
   const [busy, setBusy] = useState(false);
-  const [system, setSystem] = useState(null);
+  const [system, setSystem] = useState<SystemStatus | null>(null);
   const [error, setError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [breatheOpen, setBreatheOpen] = useState(false);
-  const [mood, setMood] = useState(null);
+  const [mood, setMood] = useState<string | null>(null);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -46,7 +70,7 @@ export default function App() {
   }, [agentic]);
 
   useEffect(() => {
-    api("/health")
+    api<SystemStatus>("/health")
       .then(setSystem)
       .catch(() => setError("Backend offline. Run: cd soulcare-snapdragon/backend && python main.py"));
   }, []);
@@ -71,14 +95,14 @@ export default function App() {
   }, []);
 
   const sendText = useCallback(
-    async (text) => {
+    async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || busy) return;
       setBusy(true);
       setError("");
       setMessages((m) => [...m, { role: "user", text: trimmed }]);
       try {
-        const data = await api("/chat", {
+        const data = await api<ChatApiResult>("/chat", {
           method: "POST",
           json: { text: trimmed, tone, history, agentic },
         });
@@ -96,7 +120,7 @@ export default function App() {
           },
         ]);
       } catch (err) {
-        setError(err.message || "Request failed");
+        setError(err instanceof Error ? err.message : "Request failed");
       } finally {
         setBusy(false);
       }
@@ -105,7 +129,7 @@ export default function App() {
   );
 
   const sendVoice = useCallback(
-    async (blob) => {
+    async (blob: Blob) => {
       if (!blob || busy) return;
       setBusy(true);
       setError("");
@@ -115,19 +139,16 @@ export default function App() {
         form.append("include_tone", "true");
         form.append("agentic", agentic ? "true" : "false");
         const token = localStorage.getItem("soulcare_token");
-        const res = await fetch(
-          `${import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000"}/voice-chat`,
-          {
-            method: "POST",
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-            body: form,
-          }
-        );
+        const res = await fetch(`${API_BASE}/voice-chat`, {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: form,
+        });
         if (!res.ok) throw new Error(`Voice chat failed (${res.status})`);
-        const data = await res.json();
+        const data = (await res.json()) as ChatApiResult;
         setRisk(data.risk);
-        setTone(data.tone);
-        setVad(data.vad);
+        setTone(data.tone || null);
+        setVad(data.vad || null);
         setAgentInfo(data.agent || null);
         setMessages((m) => [
           ...m,
@@ -135,7 +156,7 @@ export default function App() {
             role: "user",
             text: data.transcript?.text || "(voice)",
             via: "voice",
-            tone: data.tone,
+            tone: data.tone || undefined,
           },
           {
             role: "assistant",
@@ -147,7 +168,7 @@ export default function App() {
           },
         ]);
       } catch (err) {
-        setError(err.message || "Voice request failed");
+        setError(err instanceof Error ? err.message : "Voice request failed");
       } finally {
         setBusy(false);
       }
@@ -181,9 +202,9 @@ export default function App() {
     setSettingsOpen(false);
   }
 
-  function pickMood(value) {
+  function pickMood(value: string) {
     setMood(value);
-    sendText(`My mood check-in: I feel ${value}.`);
+    void sendText(`My mood check-in: I feel ${value}.`);
   }
 
   if (!user) {
@@ -191,94 +212,105 @@ export default function App() {
   }
 
   return (
-    <div className="shell">
-      <div className="ambient" aria-hidden />
-      <header className="topbar animate-in">
-        <div className="brand-block">
-          <p className="brand">SoulCare</p>
-          <p className="tagline">
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden">
+      <div
+        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(900px_480px_at_8%_-8%,rgba(111,191,154,0.2),transparent_55%),radial-gradient(700px_420px_at_100%_0%,rgba(196,163,90,0.16),transparent_50%),linear-gradient(165deg,var(--bg0),var(--bg1))]"
+        aria-hidden
+      />
+
+      <header className="animate-rise flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] px-6 py-4 backdrop-blur md:px-8">
+        <div>
+          <p className="font-display m-0 text-4xl md:text-5xl">SoulCare</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">
             Hello, {user.display_name || user.username}
             {agentic ? " · Agentic mode" : ""}
           </p>
         </div>
-        <div className="top-actions">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <OfflineBadge system={system} />
           <button
             type="button"
-            className="icon-btn"
+            className="rounded-full border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-sm"
             onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-            title="Toggle theme"
           >
             {theme === "dark" ? "Light" : "Dark"}
           </button>
-          <button type="button" className="icon-btn" onClick={() => setSettingsOpen(true)}>
+          <button
+            type="button"
+            className="rounded-full border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-sm"
+            onClick={() => setSettingsOpen(true)}
+          >
             Settings
           </button>
-          <button type="button" className="icon-btn danger-text" onClick={logout}>
+          <button
+            type="button"
+            className="rounded-full border border-crisis/40 px-3 py-2 text-sm text-crisis"
+            onClick={() => void logout()}
+          >
             Log out
           </button>
         </div>
       </header>
 
-      <div className="mood-row animate-in">
+      <div className="animate-rise flex flex-wrap items-center gap-2 px-6 pt-3 text-sm text-[var(--muted)] md:px-8">
         <span>Mood check-in</span>
         {["calm", "okay", "low", "anxious", "overwhelmed"].map((m) => (
           <button
             key={m}
             type="button"
-            className={`mood-chip ${mood === m ? "active" : ""}`}
-            onClick={() => pickMood(m)}
             disabled={busy}
+            onClick={() => pickMood(m)}
+            className={`rounded-full border px-3 py-1 capitalize ${
+              mood === m
+                ? "border-gold-400/50 bg-gold-400/15 text-gold-400"
+                : "border-[var(--line)] bg-[var(--card)]"
+            }`}
           >
             {m}
           </button>
         ))}
       </div>
 
-      <main className="layout">
-        <section className="stage">
-          <ChatInterface messages={messages} busy={busy} onSend={sendText} />
-          <VoiceInput busy={busy} onAudio={sendVoice} vadPreview={vad} />
-          {error ? <p className="error">{error}</p> : null}
+      <main className="grid flex-1 gap-4 px-6 py-4 md:grid-cols-[1.55fr_0.9fr] md:px-8">
+        <section className="flex min-h-0 flex-col gap-3">
+          <ChatInterface
+            messages={messages}
+            busy={busy}
+            onSend={(t) => void sendText(t)}
+            draft={draft}
+            setDraft={setDraft}
+          />
+          <VoiceInput
+            busy={busy}
+            onAudio={(b) => void sendVoice(b)}
+            onTranscript={setDraft}
+            vadPreview={vad}
+          />
+          {error ? <p className="m-0 text-sm text-crisis">{error}</p> : null}
         </section>
 
-        <aside className="side">
+        <aside className="flex flex-col gap-4">
           <RiskIndicator risk={risk} tone={tone} vad={vad} />
           <AgentSteps agent={agentInfo} />
-          <div className="panel animate-in">
-            <h2>On this device</h2>
-            <ul className="facts">
-              <li>Whisper-Small · Silero-VAD</li>
+          <div className="animate-rise rounded-2xl border border-[var(--line)] bg-[var(--card)] p-4 shadow-lg backdrop-blur">
+            <h2 className="font-display mb-2 text-xl">On this device</h2>
+            <ul className="m-0 list-disc pl-5 text-sm leading-7 text-[var(--muted)]">
+              <li>Whisper-Small · Silero-VAD (AI Hub App)</li>
               <li>Distil-BERT risk · Phi-3.5 reply</li>
               <li>Agent tools: breathe, ground, helpline</li>
+              <li>Targets: STT &lt;100ms · risk &lt;50ms · E2E &lt;2s</li>
             </ul>
-            <div className="quick-actions">
-              <button type="button" onClick={() => setBreatheOpen(true)}>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" className="rounded-full border border-[var(--line)] px-3 py-1.5 text-sm" onClick={() => setBreatheOpen(true)}>
                 Breathe
               </button>
-              <button type="button" onClick={exportChat}>
+              <button type="button" className="rounded-full border border-[var(--line)] px-3 py-1.5 text-sm" onClick={exportChat}>
                 Export
               </button>
-              <button type="button" onClick={() => setAgentic((v) => !v)}>
+              <button type="button" className="rounded-full border border-[var(--line)] px-3 py-1.5 text-sm" onClick={() => setAgentic((v) => !v)}>
                 Agent {agentic ? "ON" : "OFF"}
               </button>
             </div>
-            {system?.models ? (
-              <dl className="meta">
-                <div>
-                  <dt>STT</dt>
-                  <dd>{system.models.stt}</dd>
-                </div>
-                <div>
-                  <dt>Agent</dt>
-                  <dd>{system.models.agent}</dd>
-                </div>
-                <div>
-                  <dt>Risk</dt>
-                  <dd>{system.models.risk}</dd>
-                </div>
-              </dl>
-            ) : null}
           </div>
         </aside>
       </main>

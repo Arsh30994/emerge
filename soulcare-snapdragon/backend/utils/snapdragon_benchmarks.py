@@ -29,29 +29,30 @@ except ImportError:  # pragma: no cover
 # Published / target figures for judge-facing docs & /benchmarks
 AI_HUB_TARGETS = {
     "whisper_small": {
-        "model_id": "qai_hub_models.models.whisper_small",
+        "model_id": "qai_hub_models.models.whisper_small.App",
         "size_mb": 244,
         "realtime_factor": 12.5,
         "target_latency_ms": 100,
         "runtime": "ONNX Runtime + QNN EP",
     },
     "silero_vad": {
-        "model_id": "silero-vad",
+        "model_id": "qai_hub_models.models.silero_vad.App",
         "size_mb": 2,
-        "target_latency_ms": 10,
-        "runtime": "CPU (real-time)",
+        "target_latency_ms": 20,
+        "runtime": "CPU / AI Hub (real-time)",
     },
     "distil_bert": {
-        "model_id": "qai_hub_models.models.distil_bert_base_uncased_hf",
+        "model_id": "qai_hub_models.models.distilbert_base_uncased.App",
         "size_mb": 67,
         "inferences_per_sec": 100,
         "target_latency_ms": 50,
         "runtime": "ONNX Runtime + QNN EP",
     },
     "phi_3_5_mini": {
-        "model_id": "qai_hub_models.models.phi_3_5_mini_instruct",
+        "model_id": "qai_hub_models.models.phi_3_5_mini_instruct.App",
         "size_mb": 2100,
         "tokens_per_sec": 42,
+        "target_latency_ms": 1500,
         "runtime": "QNN_CONTEXT_BINARY w4a16 / llama.cpp",
         "npu_tops": 45,
     },
@@ -60,6 +61,10 @@ AI_HUB_TARGETS = {
         "memory_target_gb": 2.5,
         "npu_tops_snapdragon_x_elite": 45,
         "npu_tops_apple_m3": 18,
+        "stt_latency_ms": 100,
+        "risk_latency_ms": 50,
+        "response_latency_ms": "500-1500",
+        "vad_latency_ms": 20,
     },
 }
 

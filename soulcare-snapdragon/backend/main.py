@@ -100,9 +100,32 @@ class ChatIn(BaseModel):
 
 
 class GenerateIn(BaseModel):
-    text: str = Field(..., min_length=1, max_length=8000)
+    """Shared body for /generate-response and /respond."""
+
+    text: str | None = Field(default=None, max_length=8000, description="User message")
+    user_message: str | None = Field(
+        default=None, description="Alias for text (hackathon brief)"
+    )
     risk_context: dict[str, Any] | None = None
     tone: dict[str, Any] | None = None
+
+    def message(self) -> str:
+        value = (self.user_message or self.text or "").strip()
+        if not value:
+            raise ValueError("text or user_message required")
+        return value
+
+
+class RiskOut(BaseModel):
+    risk_score: float
+    risk_level: str
+    confidence: float | None = None
+    needs_helpline: bool = False
+    probabilities: dict[str, float] | None = None
+    backend: str | None = None
+    model: str | None = None
+    demo: bool | None = None
+    target_latency_ms: int | None = 50
 
 
 class AuthIn(BaseModel):
@@ -123,10 +146,17 @@ def _status_payload() -> dict[str, Any]:
     return {
         "status": "ok",
         "app": "SoulCare Desktop",
-        "version": "3.0.0",
+        "version": "4.0.0",
         "demo_mode": os.getenv("SOULCARE_DEMO", "1") == "1",
-        "cloud_fallback": os.getenv("SOULCARE_CLOUD_FALLBACK", "0") == "1",
-        "privacy": "On Snapdragon builds, all inference is on-device via AI Hub + QNN.",
+        "cloud_fallback": False,
+        "privacy": "100% on-device — no OpenAI/Gemini/Anthropic. AI Hub + QNN on Snapdragon.",
+        "performance_targets_ms": {
+            "vad": 20,
+            "stt": 100,
+            "risk": 50,
+            "response": 1500,
+            "e2e": 2000,
+        },
         "features": [
             "agentic_ai",
             "local_auth",
@@ -134,6 +164,7 @@ def _status_payload() -> dict[str, Any]:
             "risk_classification",
             "theme_sync",
             "session_export",
+            "typescript_ui",
         ],
         "models": {
             "stt": getattr(stt, "backend", "pending"),
@@ -144,10 +175,10 @@ def _status_payload() -> dict[str, Any]:
             "agent": "soulcare-agent-v1" if agent else "pending",
         },
         "ai_hub": {
-            "whisper_small": "qai_hub_models.models.whisper_small",
-            "distil_bert": "qai_hub_models.models.distil_bert_base_uncased_hf",
-            "phi_3_5_mini": "qai_hub_models.models.phi_3_5_mini_instruct",
-            "silero_vad": "snakers4/silero-vad",
+            "whisper_small": "qai_hub_models.models.whisper_small.App",
+            "silero_vad": "qai_hub_models.models.silero_vad.App",
+            "distilbert_base_uncased": "qai_hub_models.models.distilbert_base_uncased.App",
+            "phi_3_5_mini": "qai_hub_models.models.phi_3_5_mini_instruct.App",
         },
         "snapdragon": runtime.info,
         "auth_demo_users": [
@@ -241,13 +272,24 @@ def assess_risk(payload: TextIn) -> dict[str, Any]:
 
 
 @app.post("/generate-response")
+@app.post("/respond")
 def generate_response(payload: GenerateIn) -> dict[str, Any]:
+    """Hackathon brief: POST /respond — user_message + risk_context → AI reply."""
     assert risk_clf is not None and responder is not None
-    risk = payload.risk_context or risk_clf.predict(payload.text)
+    try:
+        user_text = payload.message()
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    risk = payload.risk_context or risk_clf.assess_risk(user_text)
     with bench.track("response_generate", backend=runtime.backend_for("llm")) as extra:
-        response = responder.generate(payload.text, risk, payload.tone)
+        response = responder.generate(user_text, risk, payload.tone)
         extra["tokens"] = response.get("tokens")
-    return {"risk": risk, "response": response}
+    return {
+        "user_message": user_text,
+        "risk": risk,
+        "response": response,
+        "reply": response.get("reply"),
+    }
 
 
 @app.post("/agent/chat")
