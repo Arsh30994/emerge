@@ -7,24 +7,24 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 
-# Node / Electron
-node_modules/
-**/dist/
-**/dist-electron/
-.DS_Store
-
-# Env / secrets / logs
-.env
-.env.local
-*.log
-
-# Large model weights (Whisper / Phi-3) — keep risk joblib optional
+# Models / media
 *.pt
 *.bin
 *.onnx
-*.safetensors
 *.webm
 *.wav
+soulcare-snapdragon/models/*.joblib
+
+# Node / Electron
+node_modules/
+frontend/dist/
+frontend/dist-electron/
+.DS_Store
+
+# Env / secrets
+.env
+.env.local
+*.log
 
 # IDE
 .idea/

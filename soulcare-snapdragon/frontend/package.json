@@ -1,0 +1,46 @@
+{
+  "name": "soulcare-desktop",
+  "version": "1.0.0",
+  "description": "SoulCare Desktop — privacy-first mental health assistant for Snapdragon HP PCs",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:vite\" \"npm:dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "wait-on http://127.0.0.1:5173 && electron .",
+    "dev:web": "vite",
+    "build": "vite build",
+    "start": "electron .",
+    "package:win": "npm run build && electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.soulcare.desktop",
+    "productName": "SoulCare",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "artifactName": "SoulCare-Snapdragon-${version}-portable.exe"
+    }
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "vite": "^6.0.6",
+    "wait-on": "^8.0.1"
+  }
+}

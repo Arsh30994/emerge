@@ -1,0 +1,32 @@
+# SoulCare Desktop — local AI mental health assistant
+# Snapdragon AI Lab Build & Present Challenge
+
+# API server
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# Risk classification (TF-IDF + Logistic Regression)
+scikit-learn==1.6.0
+joblib==1.4.2
+numpy==2.2.1
+
+# Speech-to-text (Whisper) — optional; demo mode works without it
+openai-whisper==20240930
+torch>=2.2.0
+
+# Tone analysis — optional; demo mode works without librosa
+librosa==0.10.2.post1
+soundfile==0.12.1
+
+# Local LLM (Phi-3) — optional; rule-based responses used by default
+# Uncomment when running full local inference on Snapdragon HP PCs:
+# transformers>=4.44.0
+# accelerate>=0.33.0
+# bitsandbytes>=0.43.0
+
+# Utilities
+psutil==6.1.1
+aiofiles==24.1.0
