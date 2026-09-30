@@ -75,20 +75,11 @@ soulcare-snapdragon/
 ├── README.md
 ├── ARCHITECTURE.md
 ├── demo_script.md
-├── requirements.txt
 ├── backend/
 │   ├── main.py                 # FastAPI
-│   ├── models/
-│   │   ├── agent.py            # Agentic tool loop
-│   │   ├── auth_store.py       # Local login
-│   │   ├── speech_to_text.py   # Whisper-Small
-│   │   ├── voice_activity.py   # Silero-VAD
-│   │   ├── risk_classifier.py  # Distil-BERT / sklearn
-│   │   └── response_generator.py
-│   └── utils/
-│       ├── audio_preprocessing.py
-│       ├── snapdragon_benchmarks.py
-│       └── snapdragon_optimization.py
+│   ├── requirements.txt
+│   ├── models/                 # agent, auth, STT, VAD, risk, reply
+│   └── utils/                  # audio, benchmarks, Snapdragon runtime
 ├── frontend/                   # React + Electron + Vite
 ├── models/                     # AI Hub assets + local users.json
 ├── scripts/fetch_ai_hub_models.sh
